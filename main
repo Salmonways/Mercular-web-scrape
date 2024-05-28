@@ -1,0 +1,77 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+import time
+import pandas as pd
+
+url = 'https://www.mercular.com/?gad_source=1&gclid=Cj0KCQjwu8uyBhC6ARIsAKwBGpR0GpXwDUug74U7f-q9I5tJ1MGEGHdfL7idSymB7S_yFpl9DafcXDoaAosYEALw_wcB'
+driver = webdriver.Chrome()
+driver.set_window_size( 1080,980)
+driver.get(url)  
+
+# time.sleep(1)
+# driver.quit()
+
+### navigate to flash sales page 
+driver.execute_script('scrollBy(0,750)')
+time.sleep(0.5)
+flashsalesall_bt = driver.find_element(By.XPATH, '//*[@id="components-root"]/div[2]/div/div/div/div[3]/a/button')
+flashsalesall_bt.click()
+
+### scrape data in to list
+
+#driver.execute_script('document.body.style.zoom="10%"') #zoom out
+
+from tqdm import tqdm # tqdm(show progress bar of how long it take to goes through loop)
+def generator():
+  while True:
+    yield
+
+name = []
+price = []
+discount = []
+left = []
+link = []
+
+for _ in tqdm(generator()):
+    time.sleep(1)
+    driver.execute_script('scrollBy(0,2800)')
+    
+# choose pointer by copy one of product xpath, then check each div(by deleting [1]) in ctrl + f in inspect element, if the count is amount of all product, if yes paste in code.  
+    name_pointer = driver.find_elements(By.XPATH, '//*[@id="__next"]/div[5]/div/div[4]/div/div/div[1]/div[2]/div[1]/div[1]/span')
+    price_pointer = driver.find_elements(By.XPATH, '//*[@id="__next"]/div[5]/div/div[4]/div/div/div[1]/div[2]/div[1]/div[2]/div[2]/span') 
+    discount_pointer = driver.find_elements(By.XPATH, '//*[@id="__next"]/div[5]/div/div[4]/div/div/div[1]/div[2]/div[1]/div[2]/div[1]/span')
+    left_pointer = driver.find_elements(By.XPATH, '//*[@id="__next"]/div[5]/div/div[4]/div/div/div[1]/div[2]/div[2]/div/div/span[2]')
+    link_pointer = driver.find_elements(By.XPATH, '//*[@id="__next"]/div[5]/div/div[4]/div/div/div[1]/div[1]/div[1]/div[2]/div[1]/a')
+
+# append each value to its list.
+    for i in range(len(name_pointer)):
+        name.append(name_pointer[i].text)
+        
+        try: # need to use try because some of the product price and discount is at the same place, need to change xpath
+            price.append(price_pointer[i].text)
+        except: 
+            price_pointer = driver.find_elements(By.XPATH, '//*[@id="__next"]/div[5]/div/div[4]/div/div/div[1]/div[2]/div[1]/div[2]/div/span')
+            price.append(price_pointer[i].text)
+            
+        discount.append(discount_pointer[i].text.replace("-",""))
+        left.append(left_pointer[i].text.replace('เหลือสินค้าอีก', '').replace('ชิ้น', '').replace('ขายไปแล้ว',''))
+        link.append(link_pointer[i].get_attribute('href'))
+    
+    try: # after loop through all pages(error because the button is unclick able) then break.
+        next_page_bt = driver.find_element(By.XPATH, '//*[@id="__next"]/div[5]/div/nav/ul/li[7]/button')
+        next_page_bt.click()
+    except:
+        break  
+
+### put in dataframe
+df = pd.DataFrame({
+    'Product Name' : name,
+    'Price' : price,
+    'Discount(%)' : discount,
+    'Amount of Product Avaliable' : left,
+    'Link' : link
+    })
+##save as excel files
+# df.to_excel(r'directory\files name.xlsx', index=False)
+
+df # show output(jupyter)
